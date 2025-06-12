@@ -35,6 +35,7 @@ const VerifyForm = () => {
       }
     } catch (error) {
       setResult({ valid: false });
+      console.error("Failed to verify certificate:", error);
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import { formatSeconds, getOverallQuizStats } from "@/db/queries";
+import { getOverallQuizStats } from "@/db/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Progress } from "./ui/progress";
 import CourseList from "./CourseList";
