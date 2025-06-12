@@ -24,21 +24,31 @@ const CertificatesList = ({
 }) => {
   const [isPending, startTransition] = useTransition();
   const [certificates] = useState(initialCertificates);
+  const [isWebView, setIsWebView] = useState(false);
+
+  // Detect if running in WebView
+  if (typeof window !== "undefined") {
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes("wv") || userAgent.includes("android")) {
+      if (!isWebView) setIsWebView(true);
+    }
+  }
 
   const handleDownload = async (certId: number) => {
     startTransition(async () => {
       try {
-        const { fileName, mimeType, fileData } = await downloadCertificate(
-          certId
-        );
-
-        // Create blob from Uint8Array
-        const blob = new Blob([fileData], { type: mimeType });
-
-        // Save file using file-saver
-        saveAs(blob, fileName);
-
-        toast.success("Certificate downloaded successfully");
+        if (isWebView) {
+          // In WebView, redirect to API route that triggers download
+          window.location.href = `/api/certificates/${certId}/download`;
+        } else {
+          // In browser, use existing method
+          const { fileName, mimeType, fileData } = await downloadCertificate(
+            certId
+          );
+          const blob = new Blob([fileData], { type: mimeType });
+          saveAs(blob, fileName);
+          toast.success("Certificate downloaded successfully");
+        }
       } catch (error) {
         toast.error("Failed to download certificate");
         console.error(error);
