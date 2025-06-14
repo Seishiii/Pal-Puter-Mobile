@@ -86,7 +86,7 @@ const CertificatesList = ({
           <CardContent className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div>
-                <p className="text-sm text-white">Certificate ID</p>
+                <p className="text-sm text-white">Certificate Hash</p>
                 <p className="font-mono text-xs text-gray-300 truncate max-w-[120px]">
                   {cert.hash}
                 </p>
