@@ -1,13 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { cache } from "react";
 import db from "./drizzle";
-import { and, desc, eq, exists } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, sql } from "drizzle-orm";
 import {
   courseProgress,
   courses,
   quizPerformance,
+  slideProgress,
   subtopics,
   topics,
+  userProgress,
 } from "./schema";
 
 export const formatSeconds = (seconds: number) => {
@@ -214,4 +216,184 @@ export const getUserCertificates = cache(async () => {
           fileName: progress.certificate!.fileName,
         }))
     );
+});
+
+export const getUserProgress = cache(async () => {
+  //Get userId from clerk
+  const { userId } = await auth();
+  //Make sure that there's a user
+  if (!userId) {
+    return null;
+  }
+  //Get the progress associated with the user
+  const data = await db.query.userProgress.findFirst({
+    where: eq(userProgress.userId, userId),
+    with: {
+      activeCourse: true,
+    },
+  });
+
+  return data;
+});
+
+export const getTopics = cache(async () => {
+  const { userId } = await auth();
+  const userProgress = await getUserProgress();
+  //Check if there's active course id or a user, if not, return no topics
+  if (!userId || !userProgress?.activeCourseId) {
+    return [];
+  }
+
+  //Get all the information within the active course
+  const data = await db.query.topics.findMany({
+    orderBy: (topics, { asc }) => [asc(topics.order)],
+    where: eq(topics.courseId, userProgress.activeCourseId),
+    with: {
+      subtopics: {
+        orderBy: (subtopics, { asc }) => [asc(subtopics.order)],
+        with: {
+          slides: {
+            orderBy: (slides, { asc }) => [asc(slides.order)],
+            with: {
+              slideProgresses: {
+                where: eq(slideProgress.userId, userId),
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  //Get all the slide progress within the topic and check whether they're completed or not
+  const normalizedData = data.map((topic) => {
+    const subtopicsWithCompletedStatus = topic.subtopics.map((subtopic) => {
+      //Early check if there is no slides for the subtopic
+      if (subtopic.slides.length === 0) {
+        return { ...subtopic, completed: false };
+      }
+
+      const allCompletedSlides = subtopic.slides.every((slide) => {
+        return (
+          slide.slideProgresses &&
+          slide.slideProgresses.length > 0 &&
+          slide.slideProgresses.every((progress) => progress.completed)
+        );
+      });
+
+      return { ...subtopic, completed: allCompletedSlides };
+    });
+    return { ...topic, subtopics: subtopicsWithCompletedStatus };
+  });
+
+  let quizScores: Record<number, number> = {};
+
+  if (userId) {
+    // Get all quiz subtopic IDs in this course
+    const quizSubtopicIds = normalizedData.flatMap((topic) =>
+      topic.subtopics.filter((st) => st.isQuiz).map((st) => st.id)
+    );
+
+    if (quizSubtopicIds.length > 0) {
+      // Get max attempt numbers for each subtopic
+      const maxAttempts = await db
+        .select({
+          subtopicId: quizPerformance.subtopicId,
+          maxAttempt: sql<number>`MAX(${quizPerformance.attemptNumber})`,
+        })
+        .from(quizPerformance)
+        .where(
+          and(
+            eq(quizPerformance.userId, userId),
+            inArray(quizPerformance.subtopicId, quizSubtopicIds)
+          )
+        )
+        .groupBy(quizPerformance.subtopicId);
+
+      // Get scores for these max attempts
+      const latestScores = await db
+        .select({
+          subtopicId: quizPerformance.subtopicId,
+          score: quizPerformance.score,
+        })
+        .from(quizPerformance)
+        .where(
+          and(
+            eq(quizPerformance.userId, userId),
+            inArray(
+              quizPerformance.subtopicId,
+              maxAttempts.map((ma) => ma.subtopicId)
+            ),
+            inArray(
+              quizPerformance.attemptNumber,
+              maxAttempts.map((ma) => ma.maxAttempt)
+            )
+          )
+        );
+
+      quizScores = Object.fromEntries(
+        latestScores.map((score) => [score.subtopicId, score.score])
+      );
+    }
+  }
+
+  // Attach scores to subtopics
+  const result = normalizedData.map((topic) => ({
+    ...topic,
+    subtopics: topic.subtopics.map((subtopic) => ({
+      ...subtopic,
+      latestScore: subtopic.isQuiz ? quizScores[subtopic.id] : undefined,
+    })),
+  }));
+
+  return result;
+});
+
+export const getCourseProgress = cache(async () => {
+  console.log("Course Progress is called");
+  const { userId } = await auth();
+  const userProgress = await getUserProgress();
+  //Check if there's a user or an active course, otherwise return nothing
+  if (!userId || !userProgress?.activeCourseId) {
+    return null;
+  }
+
+  //Getting all the topics within the active course along with their progresses in the slides
+  const topicsInActiveCourse = await db.query.topics.findMany({
+    orderBy: (topics, { asc }) => [asc(topics.order)],
+    where: eq(topics.courseId, userProgress.activeCourseId),
+    with: {
+      subtopics: {
+        orderBy: (subtopics, { asc }) => [asc(subtopics.order)],
+        with: {
+          topic: true,
+          slides: {
+            with: {
+              slideProgresses: {
+                where: eq(slideProgress.userId, userId),
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  //Finding the first uncompleted subtopic
+  const firstUncompletedSubtopic = topicsInActiveCourse
+    .flatMap((topic) => topic.subtopics)
+    .find((subtopic) => {
+      return subtopic.slides.some((slide) => {
+        return (
+          !slide.slideProgresses ||
+          slide.slideProgresses.length === 0 ||
+          slide.slideProgresses.some((progress) => progress.completed === false)
+        );
+      });
+    });
+
+  return {
+    activeSubtopic: firstUncompletedSubtopic,
+    activeSubtopicId: firstUncompletedSubtopic?.id,
+  };
 });

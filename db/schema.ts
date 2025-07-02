@@ -195,6 +195,8 @@ export const quizPerformanceRelations = relations(
 export const userProgress = pgTable("user_progress", {
   userId: text("user_id").primaryKey(),
   userName: text("user_name").notNull().default("User"),
+  fullName: text("full_name"),
+  email: text("email"),
   userImageSrc: text("user_image_src").notNull().default("/mascot.PNG"),
   activeCourseId: integer("active_course_id").references(() => courses.id, {
     onDelete: "set null",

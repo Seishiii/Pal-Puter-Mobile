@@ -36,6 +36,11 @@ const Sidebar = () => {
               iconSrc="/performance.svg"
             />
             <HeadingItem
+              label="Progress"
+              href="/progress"
+              iconSrc="/progress.svg"
+            />
+            <HeadingItem
               label="Certificates"
               href="/certificates"
               iconSrc="/certificates.svg"
