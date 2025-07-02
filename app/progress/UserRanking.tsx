@@ -1,7 +1,7 @@
 // app/(main)/progress/UserRankings.tsx
 import { getUserRank } from "@/db/queries";
 import { getUserProgress } from "@/db/queries";
-import { Crown, Gem, Star, Trophy } from "lucide-react";
+import { Gem, Star, Trophy } from "lucide-react";
 
 const UserRankings = async () => {
   const userProgress = await getUserProgress();
