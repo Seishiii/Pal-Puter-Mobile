@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { cache } from "react";
 import db from "./drizzle";
-import { and, desc, eq, exists, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, exists, gt, inArray, sql } from "drizzle-orm";
 import {
   courseProgress,
   courses,
@@ -396,4 +396,27 @@ export const getCourseProgress = cache(async () => {
     activeSubtopic: firstUncompletedSubtopic,
     activeSubtopicId: firstUncompletedSubtopic?.id,
   };
+});
+
+type SortField = "points" | "xp" | "level";
+
+export const getUserRank = cache(async (sortBy: SortField = "points") => {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const topUsers = await db.query.userProgress.findMany({
+    orderBy: (userProgress, { desc }) => [desc(userProgress[sortBy])],
+    columns: {
+      userId: true,
+      userName: true,
+      userImageSrc: true,
+      points: true,
+      xp: true,
+      level: true,
+    },
+  });
+
+  return topUsers;
 });

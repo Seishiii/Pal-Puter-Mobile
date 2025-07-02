@@ -2,6 +2,7 @@ import { getCourseProgress, getTopics, getUserProgress } from "@/db/queries";
 import { redirect } from "next/navigation";
 import ProgressHeader from "./ProgressHeader";
 import ProgressTopic from "./ProgressTopic";
+import UserRankings from "./UserRanking";
 
 const ProgressPage = async () => {
   const userProgressData = getUserProgress();
@@ -34,6 +35,8 @@ const ProgressPage = async () => {
   return (
     <div className="min-h-screen text-white">
       <div className="container mx-auto px-4 py-8">
+        <UserRankings />
+
         <ProgressHeader
           course={userProgress.activeCourse}
           progress={overallProgress}
