@@ -29,7 +29,7 @@ const UserRankings = async () => {
       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="w-8 h-8 text-yellow-400" />
-          <h3 className="text-xl font-bold">Points Ranking</h3>
+          <h3 className="text-xl font-bold">Gears Ranking</h3>
         </div>
 
         <div className="flex justify-between items-center">
@@ -39,7 +39,7 @@ const UserRankings = async () => {
             </div>
             <div>
               <p className="text-sm text-purple-200">Your Position</p>
-              <p className="text-xl font-bold">{userProgress.points} pts</p>
+              <p className="text-xl font-bold">{userProgress.points} Gears</p>
             </div>
           </div>
         </div>
